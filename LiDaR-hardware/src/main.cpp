@@ -1,0 +1,234 @@
+#include <Arduino.h>
+#include <Wire.h>
+#include <LIDARLite_v4LED.h>
+#include <ESP32Servo.h>
+#include <WiFi.h>
+#include <ArduinoOTA.h>
+#include <HTTPClient.h>
+
+// ─── Wi-Fi ────────────────────────────────────────────────────────────────────
+const char* WIFI_SSID     = "WiFi2773ehy";
+const char* WIFI_PASSWORD = "x2UuD59XJ";
+
+// ─── OTA ──────────────────────────────────────────────────────────────────────
+const char* OTA_HOSTNAME  = "lidar-scanner";
+const char* OTA_PASSWORD  = "password";
+
+
+// ─── Flespi ───────────────────────────────────────────────────────────────────
+const char* FLESPI_TOKEN  = "QZBImJsYXGlviI2NJprnuLAZs5Mzdl1p6y6NcXGJcA05wgbFShRxgwke65khn3Qy";
+const char* DEVICE_ID     = "8235942";
+
+// ─── Hardware ─────────────────────────────────────────────────────────────────
+const int servoPin          = 18;
+const int STEP_DEGREES      = 1;
+const int DELAY_MS          = 50;
+const int MAX_ANGLE         = 180;
+
+const uint16_t MAX_VALID_DISTANCE = 2000;
+const uint16_t MIN_VALID_DISTANCE = 5;
+
+// ─── Globals ──────────────────────────────────────────────────────────────────
+LIDARLite_v4LED lidar;
+Servo myServo;
+
+float distances[181];
+bool sweepDone = false;
+int lastAngle  = 0;
+
+// ─── Live print timer ─────────────────────────────────────────────────────────
+unsigned long lastPrint        = 0;
+const unsigned long PRINT_INTERVAL = 500;  // ms — change to 1000 for every second
+
+// ─── Forward declarations ─────────────────────────────────────────────────────
+uint16_t getFilteredDistance();
+float    computeArea();
+void     sendToFlespi(float areaCm2, float areaM2);
+void     connectWiFi();
+void     setupOTA();
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+uint16_t getFilteredDistance() {
+    uint16_t dist = 0;
+    const int retryLimit = 3;
+
+    for (int i = 0; i < retryLimit; i++) {
+        lidar.takeRange();
+        lidar.waitForBusy();
+        dist = lidar.readDistance();
+
+        if (dist > MIN_VALID_DISTANCE && dist < MAX_VALID_DISTANCE && dist != 16380) {
+            return dist;
+        }
+        delay(5);
+    }
+    return 0;
+}
+
+float computeArea() {
+    float totalArea  = 0.0;
+    float deltaTheta = STEP_DEGREES * (PI / 180.0);
+
+    for (int i = 0; i < MAX_ANGLE; i++) {
+        float r1 = distances[i];
+        float r2 = distances[i + 1];
+        if (r1 > 0 && r2 > 0) {
+            totalArea += 0.5f * r1 * r2 * sin(deltaTheta);
+        }
+    }
+    return totalArea;
+}
+
+void sendToFlespi(float areaCm2, float areaM2) {
+    String url = "https://flespi.io/gw/devices/";
+    url += DEVICE_ID;
+    url += "/messages";
+
+    // Manual JSON — no ArduinoJson needed
+    String payload = "[{\"scanned_area_cm2\":";
+    payload += String(areaCm2, 1);
+    payload += ",\"scanned_area_m2\":";
+    payload += String(areaM2, 3);
+    payload += ",\"timestamp\":";
+    payload += String((long)(millis() / 1000));
+    payload += "}]";
+
+    Serial.println("Sending to Flespi: " + payload);
+
+    HTTPClient http;
+    http.begin(url);
+    http.addHeader("Content-Type",  "application/json");
+    http.addHeader("Authorization", String("FlespiToken ") + FLESPI_TOKEN);
+
+    int httpCode = http.POST(payload);
+    if (httpCode > 0) {
+        Serial.printf("Flespi HTTP %d: %s\n", httpCode, http.getString().c_str());
+    } else {
+        Serial.printf("Flespi POST failed: %s\n", http.errorToString(httpCode).c_str());
+    }
+    http.end();
+}
+
+void connectWiFi() {
+    Serial.printf("\nConnecting to: %s\n", WIFI_SSID);
+    WiFi.disconnect(true);
+    delay(100);
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+    int attempts = 0;
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        attempts++;
+        Serial.printf("Attempt %d – status: %d\n", attempts, WiFi.status());
+
+        if (attempts > 20) {
+            Serial.println("WiFi failed! Status codes:");
+            Serial.println("  1 = No SSID (wrong name or 5GHz)");
+            Serial.println("  4 = Connect failed (wrong password)");
+            Serial.println("  6 = Disconnected");
+            Serial.println("Rebooting in 3s...");
+            delay(3000);
+            ESP.restart();
+        }
+    }
+    Serial.printf("Connected! IP: %s\n", WiFi.localIP().toString().c_str());
+}
+
+void setupOTA() {
+    ArduinoOTA.setHostname(OTA_HOSTNAME);
+    if (strlen(OTA_PASSWORD) > 0) ArduinoOTA.setPassword(OTA_PASSWORD);
+
+    ArduinoOTA.onStart([]() {
+        String type = (ArduinoOTA.getCommand() == U_FLASH) ? "sketch" : "filesystem";
+        Serial.println("OTA start: " + type);
+    });
+    ArduinoOTA.onEnd([]()  { Serial.println("\nOTA end."); });
+    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+        Serial.printf("OTA: %u%%\r", (progress * 100) / total);
+    });
+    ArduinoOTA.onError([](ota_error_t error) {
+        Serial.printf("OTA error[%u]\n", error);
+    });
+
+    ArduinoOTA.begin();
+    Serial.println("OTA ready – hostname: " + String(OTA_HOSTNAME));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+void setup() {
+    Serial.begin(115200);
+    Wire.begin(21, 22);
+
+    myServo.setPeriodHertz(50);
+    myServo.attach(servoPin, 500, 2400);
+    lidar.configure(0);
+
+    myServo.write(0);
+    delay(1000);
+
+    Serial.println("Scanning networks...");
+
+    connectWiFi();
+    setupOTA();
+
+    Serial.println("\n=== LIDAR Room Scanner ===");
+    Serial.println("Angle(deg) | Distance(cm) | Area so far(m²)");
+}
+
+void loop() {
+    ArduinoOTA.handle();
+
+    // ── Live status print every 500 ms ──────────────────────────────────────
+    unsigned long now = millis();
+    if (!sweepDone && (now - lastPrint >= PRINT_INTERVAL)) {
+        lastPrint = now;
+        float areaSoFar = computeArea() / 10000.0f;
+        Serial.printf("[%.1fs]  Angle: %3d°  |  Distance: %.1f cm  |  Area so far: %.3f m²\n",
+            now / 1000.0f,
+            lastAngle,
+            distances[lastAngle],
+            areaSoFar
+        );
+    }
+
+    // ── Sweep ────────────────────────────────────────────────────────────────
+    if (!sweepDone) {
+        float lastValidDistance = 0;
+
+        for (int angle = 0; angle <= MAX_ANGLE; angle += STEP_DEGREES) {
+            myServo.write(angle);
+            delay(DELAY_MS);
+
+            uint16_t distance = getFilteredDistance();
+
+            if (distance == 0 && lastValidDistance > 0) {
+                distances[angle] = lastValidDistance;
+            } else {
+                distances[angle] = (float)distance;
+                if (distance > 0) lastValidDistance = (float)distance;
+            }
+
+            lastAngle = angle;
+
+            // Per-step serial output (kept from your original)
+            Serial.printf("Angle: %3d°  Distance: %u cm\n", angle, distance);
+
+            ArduinoOTA.handle();  // keep OTA alive during sweep
+        }
+
+        sweepDone = true;
+
+        // ── Final results ────────────────────────────────────────────────────
+        float totalCm2 = computeArea();
+        float totalM2  = totalCm2 / 10000.0f;
+
+        Serial.println("\n=== Sweep Complete ===");
+        Serial.printf("Estimated Room Area: %.1f cm²\n", totalCm2);
+        Serial.printf("Estimated Room Area: %.3f m²\n",  totalM2);
+
+        sendToFlespi(totalCm2, totalM2);
+    }
+}
