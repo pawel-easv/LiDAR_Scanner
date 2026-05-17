@@ -6,26 +6,13 @@
 #include <ArduinoOTA.h>
 #include <HTTPClient.h>
 
-// ─── Wi-Fi ────────────────────────────────────────────────────────────────────
-const char* WIFI_SSID     = "WiFi2773ehy";
-const char* WIFI_PASSWORD = "x2UuD59XJ";
-
-// ─── OTA ──────────────────────────────────────────────────────────────────────
-const char* OTA_HOSTNAME  = "lidar-scanner";
-const char* OTA_PASSWORD  = "password";
-
-
-// ─── Flespi ───────────────────────────────────────────────────────────────────
-const char* FLESPI_TOKEN  = "QZBImJsYXGlviI2NJprnuLAZs5Mzdl1p6y6NcXGJcA05wgbFShRxgwke65khn3Qy";
-const char* DEVICE_ID     = "8235942";
-
 // ─── Hardware ─────────────────────────────────────────────────────────────────
 const int servoPin          = 18;
 const int STEP_DEGREES      = 1;
 const int DELAY_MS          = 50;
 const int MAX_ANGLE         = 180;
 
-const uint16_t MAX_VALID_DISTANCE = 2000;
+const uint16_t MAX_VALID_DISTANCE = 1680;
 const uint16_t MIN_VALID_DISTANCE = 5;
 
 // ─── Globals ──────────────────────────────────────────────────────────────────
@@ -37,8 +24,8 @@ bool sweepDone = false;
 int lastAngle  = 0;
 
 // ─── Live print timer ─────────────────────────────────────────────────────────
-unsigned long lastPrint        = 0;
-const unsigned long PRINT_INTERVAL = 500;  // ms — change to 1000 for every second
+unsigned long lastPrint = 0;
+const unsigned long PRINT_INTERVAL = 1000;
 
 // ─── Forward declarations ─────────────────────────────────────────────────────
 uint16_t getFilteredDistance();
@@ -58,7 +45,7 @@ uint16_t getFilteredDistance() {
         lidar.waitForBusy();
         dist = lidar.readDistance();
 
-        if (dist > MIN_VALID_DISTANCE && dist < MAX_VALID_DISTANCE && dist != 16380) {
+        if (dist > MIN_VALID_DISTANCE && dist < MAX_VALID_DISTANCE) {
             return dist;
         }
         delay(5);
@@ -117,22 +104,6 @@ void connectWiFi() {
     WiFi.mode(WIFI_STA);
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
-    int attempts = 0;
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        attempts++;
-        Serial.printf("Attempt %d – status: %d\n", attempts, WiFi.status());
-
-        if (attempts > 20) {
-            Serial.println("WiFi failed! Status codes:");
-            Serial.println("  1 = No SSID (wrong name or 5GHz)");
-            Serial.println("  4 = Connect failed (wrong password)");
-            Serial.println("  6 = Disconnected");
-            Serial.println("Rebooting in 3s...");
-            delay(3000);
-            ESP.restart();
-        }
-    }
     Serial.printf("Connected! IP: %s\n", WiFi.localIP().toString().c_str());
 }
 
@@ -168,20 +139,14 @@ void setup() {
 
     myServo.write(0);
     delay(1000);
-
-    Serial.println("Scanning networks...");
-
     connectWiFi();
     setupOTA();
 
-    Serial.println("\n=== LIDAR Room Scanner ===");
-    Serial.println("Angle(deg) | Distance(cm) | Area so far(m²)");
 }
 
 void loop() {
     ArduinoOTA.handle();
 
-    // ── Live status print every 500 ms ──────────────────────────────────────
     unsigned long now = millis();
     if (!sweepDone && (now - lastPrint >= PRINT_INTERVAL)) {
         lastPrint = now;
@@ -213,15 +178,13 @@ void loop() {
 
             lastAngle = angle;
 
-            // Per-step serial output (kept from your original)
             Serial.printf("Angle: %3d°  Distance: %u cm\n", angle, distance);
 
-            ArduinoOTA.handle();  // keep OTA alive during sweep
+            ArduinoOTA.handle(); 
         }
 
         sweepDone = true;
 
-        // ── Final results ────────────────────────────────────────────────────
         float totalCm2 = computeArea();
         float totalM2  = totalCm2 / 10000.0f;
 
