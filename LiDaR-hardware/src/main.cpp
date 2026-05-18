@@ -5,6 +5,7 @@
 #include <WiFi.h>
 #include <ArduinoOTA.h>
 #include <HTTPClient.h>
+#include <LiquidCrystal_I2C.h>
 
 // ─── Hardware ─────────────────────────────────────────────────────────────────
 const int servoPin          = 18;
@@ -18,6 +19,8 @@ const uint16_t MIN_VALID_DISTANCE = 5;
 // ─── Globals ──────────────────────────────────────────────────────────────────
 LIDARLite_v4LED lidar;
 Servo myServo;
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
 
 float distances[181];
 bool sweepDone = false;
@@ -133,6 +136,10 @@ void setup() {
     Serial.begin(115200);
     Wire.begin(21, 22);
 
+    lcd.init();
+    lcd.backlight();
+    lcd.setCursor(0, 0);    
+    lcd.print("LIDAR Scanner");
     myServo.setPeriodHertz(50);
     myServo.attach(servoPin, 500, 2400);
     lidar.configure(0);
@@ -150,16 +157,8 @@ void loop() {
     unsigned long now = millis();
     if (!sweepDone && (now - lastPrint >= PRINT_INTERVAL)) {
         lastPrint = now;
-        float areaSoFar = computeArea() / 10000.0f;
-        Serial.printf("[%.1fs]  Angle: %3d°  |  Distance: %.1f cm  |  Area so far: %.3f m²\n",
-            now / 1000.0f,
-            lastAngle,
-            distances[lastAngle],
-            areaSoFar
-        );
     }
 
-    // ── Sweep ────────────────────────────────────────────────────────────────
     if (!sweepDone) {
         float lastValidDistance = 0;
 
@@ -180,6 +179,16 @@ void loop() {
 
             Serial.printf("Angle: %3d°  Distance: %u cm\n", angle, distance);
 
+            lcd.setCursor(0, 0);
+            lcd.print("Angle: ");
+            lcd.print(angle);
+            lcd.print((char)223);
+            lcd.print("    ");
+
+            lcd.setCursor(0, 1);
+            lcd.print("Distance: ");
+            lcd.print(distance);
+            lcd.print(" cm  ");
             ArduinoOTA.handle(); 
         }
 
@@ -191,6 +200,15 @@ void loop() {
         Serial.println("\n=== Sweep Complete ===");
         Serial.printf("Estimated Room Area: %.1f cm²\n", totalCm2);
         Serial.printf("Estimated Room Area: %.3f m²\n",  totalM2);
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("Area:");
+        lcd.setCursor(6, 0);
+        lcd.print(totalM2);
+        lcd.print("m2");
+        lcd.setCursor(6, 1);
+        lcd.print((int)totalCm2);
+        lcd.print("cm2");
 
         sendToFlespi(totalCm2, totalM2);
     }
