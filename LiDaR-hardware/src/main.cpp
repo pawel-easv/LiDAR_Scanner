@@ -6,6 +6,7 @@
 #include <ArduinoOTA.h>
 #include <HTTPClient.h>
 #include <LiquidCrystal_I2C.h>
+#include <map>
 
 // ─── Hardware ─────────────────────────────────────────────────────────────────
 const int servoPin          = 18;
@@ -75,13 +76,23 @@ void sendToFlespi(float areaCm2, float areaM2) {
     url += DEVICE_ID;
     url += "/messages";
 
-    // Manual JSON — no ArduinoJson needed
+
+    // Some formatting on the array to make it suitable for JSON
+    String points = "[";
+    for (int i = 0; i <= MAX_ANGLE; i++) {
+        points += String(distances[i], 1);
+        if (i < MAX_ANGLE) points += ",";
+    }
+    points += "]";
+
     String payload = "[{\"scanned_area_cm2\":";
     payload += String(areaCm2, 1);
     payload += ",\"scanned_area_m2\":";
     payload += String(areaM2, 3);
     payload += ",\"timestamp\":";
     payload += String((long)(millis() / 1000));
+    payload += ",\"distances\":";
+    payload += points;
     payload += "}]";
 
     Serial.println("Sending to Flespi: " + payload);
@@ -99,7 +110,6 @@ void sendToFlespi(float areaCm2, float areaM2) {
     }
     http.end();
 }
-
 void connectWiFi() {
     Serial.printf("\nConnecting to: %s\n", WIFI_SSID);
     WiFi.disconnect(true);
@@ -152,6 +162,7 @@ void setup() {
 }
 
 void loop() {
+    
     ArduinoOTA.handle();
 
     unsigned long now = millis();
