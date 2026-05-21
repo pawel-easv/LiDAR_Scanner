@@ -193,6 +193,9 @@ void loop() {
         }
 
         sweepDone = true;
+        
+
+        myServo.write(0);
 
         float totalCm2 = computeArea();
         float totalM2  = totalCm2 / 10000.0f;
