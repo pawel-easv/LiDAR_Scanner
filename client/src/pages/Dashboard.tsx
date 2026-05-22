@@ -8,6 +8,7 @@ import { SweepHistory } from "@/components/dashboard/SweepHistory";
 import { SweepPolarChart } from "@/components/dashboard/SweepPolarChart";
 import { Card } from "@/components/ui/Card";
 import { formatAreaM2, formatDateTime } from "@/lib/format";
+import { useRooms } from "@/hooks/useRooms";
 import { useLatestSweep, useSweepHistory } from "@/hooks/useSweeps";
 import type { Stat } from "@/types";
 
@@ -47,6 +48,7 @@ function buildStats(
 export function Dashboard() {
   const latest = useLatestSweep(5_000);
   const history = useSweepHistory(5_000);
+  const rooms = useRooms(5_000);
 
   const stats = useMemo(() => {
     const latestData = latest.status === "success" ? latest.data : null;
@@ -117,7 +119,13 @@ export function Dashboard() {
             loadingLabel="Loading sweep history…"
             emptyLabel="No sweep history yet."
           >
-            {(data) => <SweepHistory entries={data} />}
+            {(data) => (
+              <SweepHistory
+                entries={data}
+                onRoomsChange={rooms.refetch}
+                onSweepsChange={history.refetch}
+              />
+            )}
           </FetchStateBlock>
         </section>
       </div>

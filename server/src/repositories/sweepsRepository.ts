@@ -6,10 +6,13 @@ import type { SweepDetailDto, SweepSummaryDto } from "../dtos/sweeps.ts";
 export async function listSweepSummaries(): Promise<SweepSummaryDto[]> {
   const rows = await db
     .selectFrom("sweeps as s")
+    .leftJoin("rooms as r", "r.id", "s.room_id")
     .leftJoin("sweep_points as p", "p.sweep_id", "s.id")
     .select([
       "s.id",
       "s.device_id",
+      "s.room_id",
+      "r.name as room_name",
       "s.captured_at",
       "s.received_at",
       "s.area_m2",
@@ -19,6 +22,8 @@ export async function listSweepSummaries(): Promise<SweepSummaryDto[]> {
     .groupBy([
       "s.id",
       "s.device_id",
+      "s.room_id",
+      "r.name",
       "s.captured_at",
       "s.received_at",
       "s.area_m2",
@@ -43,16 +48,19 @@ export async function getSweepDetailById(
   id: string,
 ): Promise<SweepDetailDto | null> {
   const sweep = await db
-    .selectFrom("sweeps")
+    .selectFrom("sweeps as s")
+    .leftJoin("rooms as r", "r.id", "s.room_id")
     .select([
-      "id",
-      "device_id",
-      "captured_at",
-      "received_at",
-      "area_m2",
-      "step_deg",
+      "s.id",
+      "s.device_id",
+      "s.room_id",
+      "r.name as room_name",
+      "s.captured_at",
+      "s.received_at",
+      "s.area_m2",
+      "s.step_deg",
     ])
-    .where("id", "=", id)
+    .where("s.id", "=", id)
     .executeTakeFirst();
 
   if (!sweep) return null;
@@ -63,16 +71,19 @@ export async function getSweepDetailById(
 
 export async function getLatestSweepDetail(): Promise<SweepDetailDto | null> {
   const sweep = await db
-    .selectFrom("sweeps")
+    .selectFrom("sweeps as s")
+    .leftJoin("rooms as r", "r.id", "s.room_id")
     .select([
-      "id",
-      "device_id",
-      "captured_at",
-      "received_at",
-      "area_m2",
-      "step_deg",
+      "s.id",
+      "s.device_id",
+      "s.room_id",
+      "r.name as room_name",
+      "s.captured_at",
+      "s.received_at",
+      "s.area_m2",
+      "s.step_deg",
     ])
-    .orderBy("received_at", "desc")
+    .orderBy("s.received_at", "desc")
     .limit(1)
     .executeTakeFirst();
 

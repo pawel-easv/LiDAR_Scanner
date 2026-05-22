@@ -20,7 +20,7 @@ export function Card({ className, children, ...rest }: CardProps) {
 }
 
 interface CardHeaderProps {
-  title: string;
+  title: ReactNode;
   action?: ReactNode;
   className?: string;
 }

@@ -1,6 +1,7 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import { healthRouter } from "./routes/healthRoute.ts";
+import { roomsRouter } from "./routes/roomsRoute.ts";
 import { sweepsRouter } from "./routes/sweepsRoute.ts";
 
 export function createApp(): Express {
@@ -8,6 +9,7 @@ export function createApp(): Express {
   app.use(cors());
   app.use(express.json());
   app.use("/api", healthRouter);
+  app.use("/api/rooms", roomsRouter);
   app.use("/api/sweeps", sweepsRouter);
   return app;
 }

@@ -7,6 +7,8 @@ export interface SweepPoint {
 export interface SweepSummary {
   id: string;
   deviceId: string;
+  roomId: string | null;
+  roomName: string | null;
   capturedAt: string;
   receivedAt: string;
   areaM2: number | null;

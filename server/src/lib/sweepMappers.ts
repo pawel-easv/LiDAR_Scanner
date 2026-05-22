@@ -13,6 +13,8 @@ export function toAreaM2(value: string | number | null): number | null {
 export function mapSweepSummary(row: {
   id: string;
   device_id: string;
+  room_id?: string | null;
+  room_name?: string | null;
   captured_at: Date | string;
   received_at: Date | string;
   area_m2: string | number | null;
@@ -22,6 +24,8 @@ export function mapSweepSummary(row: {
   return {
     id: row.id,
     deviceId: row.device_id,
+    roomId: row.room_id ?? null,
+    roomName: row.room_name ?? null,
     capturedAt: toIso(row.captured_at),
     receivedAt: toIso(row.received_at),
     areaM2: toAreaM2(row.area_m2),
@@ -34,6 +38,8 @@ export function mapSweepDetail(
   sweep: {
     id: string;
     device_id: string;
+    room_id?: string | null;
+    room_name?: string | null;
     captured_at: Date | string;
     received_at: Date | string;
     area_m2: string | number | null;
@@ -44,6 +50,8 @@ export function mapSweepDetail(
   return {
     id: sweep.id,
     deviceId: sweep.device_id,
+    roomId: sweep.room_id ?? null,
+    roomName: sweep.room_name ?? null,
     capturedAt: toIso(sweep.captured_at),
     receivedAt: toIso(sweep.received_at),
     areaM2: toAreaM2(sweep.area_m2),

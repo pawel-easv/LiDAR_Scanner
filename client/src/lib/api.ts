@@ -1,4 +1,4 @@
-import type { SweepDetail, SweepSummary } from "@/types";
+import type { RoomDetail, RoomSummary, SweepDetail, SweepSummary } from "@/types";
 
 export interface DbHealth {
   status: "ok" | "down";
@@ -62,4 +62,112 @@ export async function fetchLatestSweep(
   }
 
   return body;
+}
+
+export async function fetchRooms(signal: AbortSignal): Promise<RoomSummary[]> {
+  const res = await fetch("/api/rooms", { signal });
+  const body = await parseJson<RoomSummary[]>(res);
+
+  if (!res.ok) {
+    throw new Error(
+      (body as { detail?: string } | null)?.detail ??
+        `Failed to load rooms (HTTP ${res.status})`,
+    );
+  }
+
+  return body ?? [];
+}
+
+export async function createRoom(
+  name: string,
+  signal?: AbortSignal,
+): Promise<RoomSummary> {
+  const res = await fetch("/api/rooms", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+    signal,
+  });
+  const body = await parseJson<RoomSummary>(res);
+
+  if (!res.ok) {
+    throw new Error(
+      (body as { detail?: string } | null)?.detail ??
+        `Failed to create room (HTTP ${res.status})`,
+    );
+  }
+
+  if (!body) {
+    throw new Error(`Unexpected empty response (HTTP ${res.status})`);
+  }
+
+  return body;
+}
+
+export async function fetchRoomDetail(
+  roomId: string,
+  signal: AbortSignal,
+): Promise<RoomDetail> {
+  const res = await fetch(`/api/rooms/${roomId}`, { signal });
+  const body = await parseJson<RoomDetail>(res);
+
+  if (!res.ok) {
+    throw new Error(
+      (body as { detail?: string } | null)?.detail ??
+        `Failed to load room (HTTP ${res.status})`,
+    );
+  }
+
+  if (!body) {
+    throw new Error(`Unexpected empty response (HTTP ${res.status})`);
+  }
+
+  return body;
+}
+
+export async function renameRoom(
+  roomId: string,
+  name: string,
+  signal?: AbortSignal,
+): Promise<RoomSummary> {
+  const res = await fetch(`/api/rooms/${roomId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+    signal,
+  });
+  const body = await parseJson<RoomSummary>(res);
+
+  if (!res.ok) {
+    throw new Error(
+      (body as { detail?: string } | null)?.detail ??
+        `Failed to rename room (HTTP ${res.status})`,
+    );
+  }
+
+  if (!body) {
+    throw new Error(`Unexpected empty response (HTTP ${res.status})`);
+  }
+
+  return body;
+}
+
+export async function assignSweepRoom(
+  sweepId: string,
+  roomId: string | null,
+  signal?: AbortSignal,
+): Promise<void> {
+  const res = await fetch(`/api/sweeps/${sweepId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ roomId }),
+    signal,
+  });
+
+  if (!res.ok) {
+    const body = await parseJson<{ detail?: string }>(res);
+    throw new Error(
+      body?.detail ?? `Failed to assign room (HTTP ${res.status})`,
+    );
+  }
 }

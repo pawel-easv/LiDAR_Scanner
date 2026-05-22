@@ -10,6 +10,8 @@ export interface SweepPointDto {
 export interface SweepSummaryDto {
   id: string;
   deviceId: string;
+  roomId: string | null;
+  roomName: string | null;
   capturedAt: string;
   receivedAt: string;
   areaM2: number | null;
