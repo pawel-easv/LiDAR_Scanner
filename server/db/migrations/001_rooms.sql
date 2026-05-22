@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS rooms (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE sweeps
+  ADD COLUMN IF NOT EXISTS room_id TEXT REFERENCES rooms (id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS sweeps_room_id_idx ON sweeps (room_id);

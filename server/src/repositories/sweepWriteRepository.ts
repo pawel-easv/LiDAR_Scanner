@@ -1,6 +1,7 @@
 import { sql } from "kysely";
 import { buildSweepId, type SweepRecord } from "../domain/sweepRecord.ts";
 import { db } from "../db/kysely.ts";
+import { ensureSweepRoom } from "./roomsRepository.ts";
 
 export type SaveSweepResult = {
   id: string;
@@ -10,6 +11,7 @@ export type SaveSweepResult = {
 export async function saveSweep(sweep: SweepRecord): Promise<SaveSweepResult> {
   const receivedAt = new Date().toISOString();
   const sweepId = buildSweepId(sweep.deviceId, sweep.capturedAt);
+  const roomId = await ensureSweepRoom(sweepId, sweep.deviceId);
 
   await db
     .insertInto("devices")
@@ -24,6 +26,7 @@ export async function saveSweep(sweep: SweepRecord): Promise<SaveSweepResult> {
     .values({
       id: sweepId,
       device_id: sweep.deviceId,
+      room_id: roomId,
       captured_at: sweep.capturedAt,
       received_at: receivedAt,
       area_m2: sweep.areaM2 != null ? String(sweep.areaM2) : null,
@@ -35,6 +38,8 @@ export async function saveSweep(sweep: SweepRecord): Promise<SaveSweepResult> {
         captured_at: (eb) => eb.ref("excluded.captured_at"),
         received_at: (eb) => eb.ref("excluded.received_at"),
         step_deg: (eb) => eb.ref("excluded.step_deg"),
+        room_id: (eb) =>
+          eb.fn.coalesce("sweeps.room_id", eb.ref("excluded.room_id")),
       }),
     )
     .returning(["id", sql<boolean>`(xmax = 0)`.as("inserted")])

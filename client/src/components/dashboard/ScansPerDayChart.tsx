@@ -68,7 +68,7 @@ export function ScansPerDayChart({ sweeps }: ScansPerDayChartProps) {
                   className={
                     day.isToday
                       ? "w-full max-w-8 rounded-lg bg-brand-600"
-                      : "w-full max-w-8 rounded-lg bg-brand-200"
+                      : "w-full max-w-8 rounded-lg bg-brand-100"
                   }
                 />
               </div>

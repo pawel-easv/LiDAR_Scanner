@@ -4,6 +4,8 @@ export type {
   SweepSummary,
 } from "./sweeps.ts";
 
+export type { RoomDetail, RoomSummary } from "./rooms.ts";
+
 export type Trend = "up" | "down";
 
 export interface Stat {
