@@ -1,0 +1,26 @@
+{
+  "name": "lidar-server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Express API for the LiDAR Scanner dashboard. Reads normalized scan data from the database; future Flespi adapter will live here.",
+  "scripts": {
+    "dev": "node --experimental-strip-types --watch --env-file=../.env src/index.ts",
+    "start": "node --experimental-strip-types --env-file=../.env src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.0.2",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "kysely": "^0.28.17",
+    "kysely-neon": "^2.0.2",
+    "mqtt": "^5.14.1"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.7.0",
+    "typescript": "^5.6.3"
+  }
+}

@@ -1,12 +1,18 @@
+export type {
+  SweepDetail,
+  SweepPoint,
+  SweepSummary,
+} from "./sweeps.ts";
+
 export type Trend = "up" | "down";
 
 export interface Stat {
   id: string;
   label: string;
-  value: number;
+  value: number | string;
   unit: string;
-  trend: Trend;
-  delta: string;
+  trend?: Trend;
+  delta?: string;
   iconBg: string;
   iconColor: string;
 }
