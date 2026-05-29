@@ -11,7 +11,7 @@
 // ─── Hardware ─────────────────────────────────────────────────────────────────
 const int servoPin          = 18;
 const int STEP_DEGREES      = 1;
-const int DELAY_MS          = 50;
+const int DELAY_MS          = 100;
 const int MAX_ANGLE         = 180;
 
 const uint16_t MAX_VALID_DISTANCE = 1680;
@@ -36,7 +36,9 @@ uint16_t getFilteredDistance();
 float    computeArea();
 void     sendToFlespi(float areaCm2, float areaM2);
 void     connectWiFi();
-void     setupOTA();
+void     setupOTA();    
+void     LcdPrintAngle(float angle, float distance);
+void     LcdFinishPrint(float totalCm2, float totalM2);
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -52,7 +54,7 @@ uint16_t getFilteredDistance() {
         if (dist > MIN_VALID_DISTANCE && dist < MAX_VALID_DISTANCE) {
             return dist;
         }
-        delay(5);
+        delay(50);
     }
     return 0;
 }
@@ -124,11 +126,6 @@ void setupOTA() {
     ArduinoOTA.setHostname(OTA_HOSTNAME);
     if (strlen(OTA_PASSWORD) > 0) ArduinoOTA.setPassword(OTA_PASSWORD);
 
-    ArduinoOTA.onStart([]() {
-        String type = (ArduinoOTA.getCommand() == U_FLASH) ? "sketch" : "filesystem";
-        Serial.println("OTA start: " + type);
-    });
-    ArduinoOTA.onEnd([]()  { Serial.println("\nOTA end."); });
     ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
         Serial.printf("OTA: %u%%\r", (progress * 100) / total);
     });
@@ -137,7 +134,6 @@ void setupOTA() {
     });
 
     ArduinoOTA.begin();
-    Serial.println("OTA ready – hostname: " + String(OTA_HOSTNAME));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -162,14 +158,12 @@ void setup() {
 }
 
 void loop() {
-    
     ArduinoOTA.handle();
 
     unsigned long now = millis();
     if (!sweepDone && (now - lastPrint >= PRINT_INTERVAL)) {
         lastPrint = now;
     }
-
     if (!sweepDone) {
         float lastValidDistance = 0;
 
@@ -186,44 +180,49 @@ void loop() {
                 if (distance > 0) lastValidDistance = (float)distance;
             }
 
+            Serial.printf("Angle: %3d°, Distance: %4.1f cm\n", angle, distances[angle]);
             lastAngle = angle;
-
-            Serial.printf("Angle: %3d°  Distance: %u cm\n", angle, distance);
-
-            lcd.setCursor(0, 0);
-            lcd.print("Angle: ");
-            lcd.print(angle);
-            lcd.print((char)223);
-            lcd.print("    ");
-
-            lcd.setCursor(0, 1);
-            lcd.print("Distance: ");
-            lcd.print(distance);
-            lcd.print(" cm  ");
-            ArduinoOTA.handle(); 
+            LcdPrintAngle(angle, distance);
+            ArduinoOTA.handle();
         }
-
         sweepDone = true;
-        
-
-        myServo.write(0);
+        // Resetting servo to 0° after sweep
+        myServo.write(90);
 
         float totalCm2 = computeArea();
         float totalM2  = totalCm2 / 10000.0f;
 
-        Serial.println("\n=== Sweep Complete ===");
-        Serial.printf("Estimated Room Area: %.1f cm²\n", totalCm2);
-        Serial.printf("Estimated Room Area: %.3f m²\n",  totalM2);
-        lcd.clear();
-        lcd.setCursor(0, 0);
-        lcd.print("Area:");
-        lcd.setCursor(6, 0);
-        lcd.print(totalM2);
-        lcd.print("m2");
-        lcd.setCursor(6, 1);
-        lcd.print((int)totalCm2);
-        lcd.print("cm2");
+        LcdFinishPrint(totalCm2, totalM2);
 
         sendToFlespi(totalCm2, totalM2);
     }
+
+}
+
+void LcdPrintAngle(float angle, float distance) {
+    lcd.setCursor(0, 0);
+    lcd.print("Angle: ");
+    lcd.print(angle);
+    lcd.print((char)223);
+    lcd.print("    ");
+
+    lcd.setCursor(0, 1);
+    lcd.print("Distance: ");
+    lcd.print(distance);
+    lcd.print(" cm  ");
+}
+
+void LcdFinishPrint(float totalCm2, float totalM2) {
+    Serial.println("\n=== Sweep Complete ===");
+    Serial.printf("Estimated Room Area: %.1f cm²\n", totalCm2);
+    Serial.printf("Estimated Room Area: %.3f m²\n",  totalM2);
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Area:");
+    lcd.setCursor(6, 0);
+    lcd.print(totalM2);
+    lcd.print("m2");
+    lcd.setCursor(6, 1);
+    lcd.print((int)totalCm2);
+    lcd.print("cm2");
 }
