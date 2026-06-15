@@ -7,6 +7,7 @@
 #include <HTTPClient.h>
 #include <LiquidCrystal_I2C.h>
 #include <map>
+#include <ArduinoJson.h>
 
 // ─── Hardware ─────────────────────────────────────────────────────────────────
 const int servoPin          = 18;
@@ -78,24 +79,23 @@ void sendToFlespi(float areaCm2, float areaM2) {
     url += DEVICE_ID;
     url += "/messages";
 
+    JsonDocument doc;                      // ArduinoJson v7, auto-sized
+    JsonArray root = doc.to<JsonArray>();
+    JsonObject msg = root.add<JsonObject>();
 
-    // Some formatting on the array to make it suitable for JSON
-    String points = "[";
+    // serialized() writes the pre-formatted number as-is, so the
+    // decimal precision matches what String(value, n) produced before.
+    msg["scanned_area_cm2"] = serialized(String(areaCm2, 1));
+    msg["scanned_area_m2"]  = serialized(String(areaM2, 3));
+    msg["timestamp"]        = (long)(millis() / 1000);
+
+    JsonArray distArr = msg["distances"].to<JsonArray>();
     for (int i = 0; i <= MAX_ANGLE; i++) {
-        points += String(distances[i], 1);
-        if (i < MAX_ANGLE) points += ",";
+        distArr.add(serialized(String(distances[i], 1)));
     }
-    points += "]";
 
-    String payload = "[{\"scanned_area_cm2\":";
-    payload += String(areaCm2, 1);
-    payload += ",\"scanned_area_m2\":";
-    payload += String(areaM2, 3);
-    payload += ",\"timestamp\":";
-    payload += String((long)(millis() / 1000));
-    payload += ",\"distances\":";
-    payload += points;
-    payload += "}]";
+    String payload;
+    serializeJson(doc, payload);
 
     Serial.println("Sending to Flespi: " + payload);
 
@@ -112,6 +112,7 @@ void sendToFlespi(float areaCm2, float areaM2) {
     }
     http.end();
 }
+
 void connectWiFi() {
     Serial.printf("\nConnecting to: %s\n", WIFI_SSID);
     WiFi.disconnect(true);
@@ -186,8 +187,7 @@ void loop() {
             ArduinoOTA.handle();
         }
         sweepDone = true;
-        // Resetting servo to 0° after sweep
-        myServo.write(90);
+        myServo.write(0);
 
         float totalCm2 = computeArea();
         float totalM2  = totalCm2 / 10000.0f;
